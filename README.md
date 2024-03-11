@@ -5,9 +5,9 @@
 
 We present a dataset for graph-based question answering. The dataset consists of <question; candidate answer> pairs. For each candidate, we present a graph that is obtained by finding the shortest path between named entities mentioned in a question and a candidate answer. As a knowledge graph, we adopted Wikidata. Thus, answer candidate corresponds to a node from the Wikidata knowledge graph. 
 
-The data format used in our dataset in compatible with NetworkX. For an example on how to work with shortest path graph, please see [this script](https://github.com/uhh-lt/TextGraphs17-shared-task/tree/main/question_graph_examples).
+The data format used in our dataset in compatible with NetworkX. For an example on how to work with shortest path graph, please see [this script](https://github.com/uhh-lt/TextGraphs17-shared-task/tree/main/visualization/draw_random_question_graphs.py).
 
-Train dataste is available [here](https://github.com/uhh-lt/TextGraphs17-shared-task/blob/main/data/tsv/train_dev.tsv). It can be used for initial experiments.
+Train dataset is available [here](https://github.com/uhh-lt/TextGraphs17-shared-task/blob/main/data/tsv/train.tsv). It can be used for initial experiments.
 
 
 ## Data vizualization

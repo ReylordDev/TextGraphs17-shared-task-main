@@ -7,47 +7,102 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from typing import List, Optional, TypedDict
 
 
-def split_node_labels(n_label, max_line_length=16, min_line_length=4):
-    label_length = len(n_label)
-    accum_length = 0
+def split_node_labels(node_label: str, max_line_length=16, min_line_length=4):
+    """
+    This function splits the node labels into multiple lines if they are too long.
+    It ensures that the label is not split into lines that are too short.
+
+    Args:
+        node_label (str): The label of the node.
+        max_line_length (int, optional): The maximum length of a line. Defaults to 16.
+        min_line_length (int, optional): The minimum length of a line. Defaults to 4.
+
+    Returns:
+        str: The node label split into multiple lines if necessary.
+    """
+    label_length = len(node_label)
+    accum_length = 0  # accumulated length
     lines = []
-    words = n_label.split()
-    curr_s = f"{words[0]}"
-    for w in words[1:]:
-        curr_len = len(curr_s)
-        w_len = len(w)
+    words = node_label.split()
+    current_string = f"{words[0]}"
+
+    # Iterate over the rest of the words
+    for word in words[1:]:
+        current_length = len(current_string)
+        word_length = len(word)
+
+        # If adding the current word to the current string would make it too long,
+        # and the remaining label is long enough to form another line,
+        # add the current string to the list of lines and start a new string with the current word
         if (
-            curr_len + w_len > max_line_length
+            current_length + word_length > max_line_length
             and label_length - accum_length > min_line_length
         ):
-            lines.append(curr_s)
-            curr_s = w
-            accum_length += len(curr_s)
+            lines.append(current_string)
+            current_string = word
+            accum_length += len(current_string)
         else:
-            curr_s += f" {w}"
-    if len(curr_s) > 0:
-        lines.append(curr_s)
+            # Otherwise, add the current word to the current string
+            current_string += f" {word}"
 
+    # If there is a non-empty string left, add it to the list of lines
+    if len(current_string) > 0:
+        lines.append(current_string)
+
+    # Join the lines with newline characters and return the result
     return "\n".join(lines)
 
 
 def parse_args():
+    """
+    Parse command line arguments.
+
+    Returns:
+        args (argparse.Namespace): Parsed command line arguments.
+    """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_tsv", type=str, default="../data/tsv/train.tsv")
-    parser.add_argument("--num_questions", type=int, default=10, required=False)
-    parser.add_argument("--output_dir", type=str, default="../question_graph_examples/")
+    parser.add_argument(
+        "--input_tsv", type=str, default="../data/tsv/train.tsv"
+    )  # Path to the TSV file
+    parser.add_argument(
+        "--num_questions", type=int, default=10, required=False
+    )  # Number of questions to sample
+    parser.add_argument(
+        "--output_dir", type=str, default="../question_graph_examples/"
+    )  # Output directory for the images
 
     args = parser.parse_args()
 
     return args
 
 
+class Node(TypedDict):
+    type: str
+    name_: str
+    id: int
+    label: str
+
+
+class Link(TypedDict):
+    name_: str
+    source: int
+    target: int
+    label: str
+
+
+class Graph(TypedDict):
+    nodes: List[Node]
+    links: List[Link]
+    directed: Optional[bool]
+
+
 def main(args):
-    input_tsv = args.input_tsv
-    num_questions = args.num_questions
-    output_dir = args.output_dir
+    input_tsv: str = args.input_tsv
+    num_questions: int = args.num_questions
+    output_dir: str = args.output_dir
     if not os.path.exists(output_dir) and output_dir != "":
         os.makedirs(output_dir)
 
@@ -55,18 +110,20 @@ def main(args):
     qs = tuple(df["question"].unique())
     random_qs = random.sample(qs, k=num_questions)
 
-    for i, q in enumerate(random_qs):
-        ddf = df[df["question"] == q]
+    for i, question in enumerate(random_qs):
+        ddf = df[df["question"] == question]  # All the rows for the question
         for _, row in ddf.iterrows():
             true_flag = row["correct"]
             assert isinstance(true_flag, bool)
-            assert row["question"] == q
-            graph_json = eval(row["graph"])
+            assert row["question"] == question
+            graph_json: Graph = eval(row["graph"])
             graph_json["directed"] = True
 
             sample_id = row["sample_id"]
-            cand_s = row["answerEntity"].replace("/", "|").replace("\\", "|")
-            true_s = row["groundTruthAnswerEntity"].replace("/", "|").replace("\\", "|")
+            candidate_entity = row["answerEntity"].replace("/", "|").replace("\\", "|")
+            true_entity = (
+                row["groundTruthAnswerEntity"].replace("/", "|").replace("\\", "|")
+            )
 
             nx_graph = nx.node_link_graph(
                 graph_json,
@@ -77,38 +134,38 @@ def main(args):
                 "ANSWER_CANDIDATE_ENTITY": candidate_color,
                 "QUESTIONS_ENTITY": "#2A4CC6",
             }
-            node_colors = {}
-            labels = {}
-            for n_dict in graph_json["nodes"]:
-                n_id = n_dict["id"]
-                n_label = n_dict["label"]
-                n_label = "None" if n_label is None else n_label
-                n_type = n_dict["type"]
-                n_label = split_node_labels(
-                    n_label, max_line_length=13, min_line_length=4
+            node_colors: dict[int, str] = {}
+            labels: dict[int, str] = {}
+            for node_dict in graph_json["nodes"]:
+                node_id = node_dict["id"]
+                node_label = node_dict["label"]
+                node_label = "None" if node_label is None else node_label
+                node_type = node_dict["type"]
+                node_label = split_node_labels(
+                    node_label, max_line_length=13, min_line_length=4
                 )
-                labels[n_id] = n_label
+                labels[node_id] = node_label
                 color = (
-                    color_map[n_type]
-                    if color_map.get(n_type) is not None
+                    color_map[node_type]
+                    if color_map.get(node_type) is not None
                     else "#808080"
                 )
-                node_colors[n_id] = color
+                node_colors[node_id] = color
 
             node_colors_np = [node_colors[key] for key in sorted(node_colors.keys())]
             node_colors_np = np.array(node_colors_np)
-            edge_labels = {}
-            for e_dict in graph_json["links"]:
-                src_i = e_dict["source"]
-                trg_i = e_dict["target"]
-                e_label = e_dict["label"]
+            edge_labels: dict[tuple[int, int], str] = {}
+            for edge_dict in graph_json["links"]:
+                src_i = edge_dict["source"]
+                trg_i = edge_dict["target"]
+                e_label = edge_dict["label"]
                 e_label = split_node_labels(
                     e_label, max_line_length=12, min_line_length=3
                 )
                 edge_labels[(src_i, trg_i)] = e_label
 
             plt.title(
-                split_node_labels(q, max_line_length=64, min_line_length=16),
+                split_node_labels(question, max_line_length=64, min_line_length=16),
                 fontsize=12,
             )
             # pos = nx.spring_layout(nx_graph)
@@ -154,7 +211,7 @@ def main(args):
                 pos_node_labels[k] = (v[0], v[1] - offset)
             nx.draw_networkx_labels(nx_graph, pos_node_labels, labels, font_size=8)
 
-            fname = f"{true_s}_{sample_id}_{cand_s}.png"
+            fname = f"{true_entity}_{sample_id}_{candidate_entity}.png"
             output_subdir = os.path.join(output_dir, f"question_{i}/")
             if not os.path.exists(output_subdir):
                 os.makedirs(output_subdir)

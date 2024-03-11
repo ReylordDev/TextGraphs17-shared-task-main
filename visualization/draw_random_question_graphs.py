@@ -10,6 +10,19 @@ from matplotlib import pyplot as plt
 from typing import List, Optional, TypedDict
 
 
+def clean_entity(entity: str) -> str:
+    """
+    This function cleans the entity such that it can be used as a filename.
+
+    Args:
+        entity (str): The entity to clean.
+
+    Returns:
+        str: The cleaned entity.
+    """
+    return entity.replace(" ", "_").replace(",", "").replace(":", "_")
+
+
 def split_node_labels(node_label: str, max_line_length=16, min_line_length=4):
     """
     This function splits the node labels into multiple lines if they are too long.
@@ -103,10 +116,15 @@ def main(args):
     input_tsv: str = args.input_tsv
     num_questions: int = args.num_questions
     output_dir: str = args.output_dir
+    if os.path.exists(output_dir) and output_dir != "":
+        for question_folder in os.scandir(output_dir):
+            for file in os.scandir(question_folder):
+                os.remove(file.path)
+
     if not os.path.exists(output_dir) and output_dir != "":
         os.makedirs(output_dir)
 
-    df = pd.read_csv(input_tsv, sep="\t")
+    df = pd.read_csv(input_tsv, sep="\t", encoding="utf-8")
     qs = tuple(df["question"].unique())
     random_qs = random.sample(qs, k=num_questions)
 
@@ -120,8 +138,10 @@ def main(args):
             graph_json["directed"] = True
 
             sample_id = row["sample_id"]
-            candidate_entity = row["answerEntity"].replace("/", "|").replace("\\", "|")
-            true_entity = (
+            candidate_entity: str = (
+                row["answerEntity"].replace("/", "|").replace("\\", "|")
+            )
+            true_entity: str = (
                 row["groundTruthAnswerEntity"].replace("/", "|").replace("\\", "|")
             )
 
@@ -211,7 +231,10 @@ def main(args):
                 pos_node_labels[k] = (v[0], v[1] - offset)
             nx.draw_networkx_labels(nx_graph, pos_node_labels, labels, font_size=8)
 
-            fname = f"{true_entity}_{sample_id}_{candidate_entity}.png"
+            cleaned_candidate_entity = clean_entity(candidate_entity)
+            cleaned_true_entity = clean_entity(true_entity)
+
+            fname = f"{cleaned_true_entity}_{sample_id}_{cleaned_candidate_entity}.png"
             output_subdir = os.path.join(output_dir, f"question_{i}/")
             if not os.path.exists(output_subdir):
                 os.makedirs(output_subdir)

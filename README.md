@@ -1,8 +1,10 @@
-# TextGraphs17-shared-task
 
 Original Repository:
 [TextGraphs17-shared-task](https://github.com/uhh-lt/TextGraphs17-shared-task)
 
+Original README: 
+
+# TextGraphs17-shared-task
 
 ## Data
 
